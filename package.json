@@ -17,10 +17,16 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "list-projects",
-      "title": "List Projects",
-      "description": "",
-      "mode": "no-view"
+      "name": "search-projects",
+      "title": "Search Projects",
+      "description": "Search and open OpenCode projects",
+      "mode": "view"
+    },
+    {
+      "name": "search-sessions",
+      "title": "Search Sessions",
+      "description": "Search and resume OpenCode sessions",
+      "mode": "view"
     }
   ],
   "dependencies": {
