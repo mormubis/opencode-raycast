@@ -88,7 +88,9 @@ function query(sql: string): string {
  * The API scopes sessions to the current project, but the DB has all of them.
  */
 export function getSessionCountsByProject(): Record<string, number> {
-  const output = query("SELECT project_id, COUNT(*) FROM session WHERE time_archived IS NULL GROUP BY project_id");
+  const output = query(
+    "SELECT project_id, COUNT(*) FROM session WHERE time_archived IS NULL AND parent_id IS NULL GROUP BY project_id",
+  );
   const counts: Record<string, number> = {};
   for (const line of output.trim().split("\n")) {
     if (!line) continue;
@@ -112,7 +114,7 @@ export interface DbSession {
  */
 export function getRecentSessions(limit = 50): DbSession[] {
   const output = query(
-    `SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL ORDER BY time_updated DESC LIMIT ${limit}`,
+    `SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL AND parent_id IS NULL ORDER BY time_updated DESC LIMIT ${limit}`,
   );
   const sessions: DbSession[] = [];
   for (const line of output.trim().split("\n")) {
@@ -138,7 +140,7 @@ export function getRecentSessions(limit = 50): DbSession[] {
 export function searchSessionsByContent(keyword: string, limit = 30): DbSession[] {
   const escaped = keyword.replace(/'/g, "''").toLowerCase();
   const output = query(
-    `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+    `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND s.parent_id IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
   );
   const sessions: DbSession[] = [];
   for (const line of output.trim().split("\n")) {
