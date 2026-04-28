@@ -27,6 +27,7 @@ function findTtyForSession(sessionId: string): string | null {
 
 /**
  * Focus the iTerm2 tab whose current session matches the given TTY.
+ * Searches current window, finds the tab index, then selects it.
  */
 async function focusITermByTty(tty: string): Promise<boolean> {
   const result = await runAppleScript(`
@@ -36,8 +37,11 @@ async function focusITermByTty(tty: string): Promise<boolean> {
           tell tab i
             tell current session
               if tty is "${esc(tty)}" then
-                select
-                activate application "iTerm2"
+                -- select this tab at the window level
+                tell current window of application "iTerm2"
+                  select tab i
+                end tell
+                activate
                 return "found"
               end if
             end tell
