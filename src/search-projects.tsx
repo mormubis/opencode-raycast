@@ -1,7 +1,16 @@
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
-import { DbSession, Project, useAllSessions, useProjects, useSessionCounts } from "./lib/hooks";
+import {
+  DbSession,
+  Project,
+  SessionStatus,
+  useAllSessions,
+  useOpenSessions,
+  useProjects,
+  useSessionCounts,
+  useSessionStatus,
+} from "./lib/hooks";
 import { openOpenCode, resumeSession } from "./lib/terminal";
-import { formatTime } from "./search-sessions";
+import { formatTime, statusColor, statusLabel } from "./search-sessions";
 
 function projectName(project: Project): string {
   if (project.name) return project.name;
@@ -11,6 +20,10 @@ function projectName(project: Project): string {
 
 function ProjectSessions({ project }: { project: Project }) {
   const { data: allSessions = [] } = useAllSessions();
+  const { data: statusMap = {} } = useSessionStatus();
+  const { data: rawOpenIds } = useOpenSessions();
+  const openIds = Array.isArray(rawOpenIds) ? rawOpenIds : [];
+
   const projectSessions = allSessions.filter((s) => s.projectId === project.id);
 
   return (
@@ -18,19 +31,42 @@ function ProjectSessions({ project }: { project: Project }) {
       {projectSessions.length === 0 ? (
         <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (
-        projectSessions.map((session) => <DbSessionListItem key={session.id} session={session} />)
+        projectSessions.map((session) => (
+          <ProjectSessionItem
+            key={session.id}
+            session={session}
+            statusMap={statusMap}
+            isOpen={openIds.includes(session.id)}
+          />
+        ))
       )}
     </List>
   );
 }
 
-function DbSessionListItem({ session }: { session: DbSession }) {
+function ProjectSessionItem({
+  session,
+  statusMap,
+  isOpen,
+}: {
+  session: DbSession;
+  statusMap: Record<string, SessionStatus>;
+  isOpen: boolean;
+}) {
+  const status = statusMap[session.id];
+  const accessories: List.Item.Accessory[] = [];
+  if (isOpen) {
+    accessories.push({ tag: { value: "Open", color: Color.Blue } });
+  }
+  accessories.push({ tag: { value: statusLabel(status), color: statusColor(status) } });
+  accessories.push({ text: formatTime(session.timeUpdated) });
+
   return (
     <List.Item
       title={session.title}
       subtitle={session.directory}
       icon={Icon.Message}
-      accessories={[{ text: formatTime(session.timeUpdated) }]}
+      accessories={accessories}
       actions={
         <ActionPanel>
           <Action
