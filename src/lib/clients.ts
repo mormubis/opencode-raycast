@@ -41,7 +41,7 @@ export async function getClient(): Promise<OpencodeClient> {
   if (!initializing) {
     initializing = (async () => {
       ensurePath();
-      instance = await createOpencode();
+      instance = await createOpencode({ port: 0 });
       return instance.client;
     })();
   }
