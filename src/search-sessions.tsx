@@ -139,16 +139,23 @@ export default function SearchSessions() {
   const isContent = mode === "content";
   const sessions = isContent ? contentResults : recentSessions;
   const isLoading = isContent ? contentLoading : recentLoading;
-  const placeholder = isContent ? "Search conversation content (min 3 chars)..." : "Filter sessions by title...";
 
   return (
     <List
       isLoading={isLoading}
-      searchBarPlaceholder={placeholder}
-      onSearchTextChange={isContent ? setSearchText : undefined}
+      searchBarPlaceholder={isContent ? "Search conversation content (min 3 chars)..." : "Filter sessions by title..."}
+      filtering={!isContent}
+      onSearchTextChange={setSearchText}
       throttle={isContent}
       searchBarAccessory={
-        <List.Dropdown tooltip="Search Mode" onChange={setMode} value={mode}>
+        <List.Dropdown
+          tooltip="Search Mode"
+          onChange={(value) => {
+            setMode(value);
+            setSearchText("");
+          }}
+          value={mode}
+        >
           <List.Dropdown.Item title="Recent" value="recent" icon={Icon.Clock} />
           <List.Dropdown.Item title="Search Content" value="content" icon={Icon.MagnifyingGlass} />
         </List.Dropdown>
