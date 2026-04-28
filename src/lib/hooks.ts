@@ -1,8 +1,9 @@
 import { useCachedPromise } from "@raycast/utils";
 import { Project, Session, SessionStatus, Todo } from "@opencode-ai/sdk/v2/client";
 import { getClient } from "./clients";
+import { getSessionCountsByProject, getRecentSessions, DbSession } from "./db";
 
-export type { Project, Session, SessionStatus, Todo };
+export type { Project, Session, SessionStatus, Todo, DbSession };
 
 export type MessageWithParts = {
   info: {
@@ -26,12 +27,21 @@ export function useProjects() {
   });
 }
 
-export function useSessions() {
+/**
+ * Session counts per project from SQLite (cross-project, not scoped).
+ */
+export function useSessionCounts() {
   return useCachedPromise(async () => {
-    const client = await getClient();
-    const result = await client.session.list();
-    const sessions = result.data ?? [];
-    return sessions.sort((a: Session, b: Session) => b.time.updated - a.time.updated);
+    return getSessionCountsByProject();
+  });
+}
+
+/**
+ * Recent sessions across ALL projects from SQLite.
+ */
+export function useAllSessions() {
+  return useCachedPromise(async () => {
+    return getRecentSessions(100);
   });
 }
 

@@ -1,7 +1,7 @@
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
-import { Project, Session, SessionStatus, useProjects, useSessions, useSessionStatus } from "./lib/hooks";
-import { openOpenCode } from "./lib/terminal";
-import { SessionListItem } from "./search-sessions";
+import { DbSession, Project, useAllSessions, useProjects, useSessionCounts } from "./lib/hooks";
+import { openOpenCode, resumeSession } from "./lib/terminal";
+import { formatTime } from "./search-sessions";
 
 function projectName(project: Project): string {
   if (project.name) return project.name;
@@ -9,45 +9,49 @@ function projectName(project: Project): string {
   return parts[parts.length - 1] || project.worktree;
 }
 
-function ProjectSessions({
-  project,
-  sessions,
-  statusMap,
-}: {
-  project: Project;
-  sessions: Session[];
-  statusMap: Record<string, SessionStatus>;
-}) {
-  const projectSessions = sessions.filter((s) => s.projectID === project.id);
+function ProjectSessions({ project }: { project: Project }) {
+  const { data: allSessions = [] } = useAllSessions();
+  const projectSessions = allSessions.filter((s) => s.projectId === project.id);
 
   return (
     <List navigationTitle={`Sessions — ${projectName(project)}`} searchBarPlaceholder="Search sessions...">
       {projectSessions.length === 0 ? (
         <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (
-        projectSessions.map((session) => <SessionListItem key={session.id} session={session} statusMap={statusMap} />)
+        projectSessions.map((session) => <DbSessionListItem key={session.id} session={session} />)
       )}
     </List>
   );
 }
 
+function DbSessionListItem({ session }: { session: DbSession }) {
+  return (
+    <List.Item
+      title={session.title}
+      subtitle={session.directory}
+      icon={Icon.Message}
+      accessories={[{ text: formatTime(session.timeUpdated) }]}
+      actions={
+        <ActionPanel>
+          <Action
+            title="Resume in iTerm"
+            icon={Icon.Terminal}
+            onAction={() => resumeSession(session.directory, session.id)}
+          />
+          <Action.CopyToClipboard
+            title="Copy Session ID"
+            content={session.id}
+            shortcut={{ modifiers: ["cmd"], key: "c" }}
+          />
+        </ActionPanel>
+      }
+    />
+  );
+}
+
 export default function SearchProjects() {
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
-  const { data: sessions = [] } = useSessions();
-  const { data: statusMap = {} } = useSessionStatus();
-
-  const sessionsByProject = sessions.reduce<Record<string, number>>((acc, s) => {
-    acc[s.projectID] = (acc[s.projectID] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const activeByProject = sessions.reduce<Record<string, number>>((acc, s) => {
-    const status = statusMap[s.id];
-    if (status?.type === "busy") {
-      acc[s.projectID] = (acc[s.projectID] ?? 0) + 1;
-    }
-    return acc;
-  }, {});
+  const { data: sessionCounts = {} } = useSessionCounts();
 
   return (
     <List isLoading={projectsLoading} searchBarPlaceholder="Search projects...">
@@ -59,17 +63,11 @@ export default function SearchProjects() {
         />
       ) : (
         projects.map((project) => {
-          const activeCount = activeByProject[project.id] ?? 0;
-          const totalCount = sessionsByProject[project.id] ?? 0;
-
+          const count = sessionCounts[project.id] ?? 0;
           const accessories: List.Item.Accessory[] = [];
-          if (activeCount > 0) {
+          if (count > 0) {
             accessories.push({
-              tag: { value: `${activeCount} active`, color: Color.Green },
-            });
-          } else if (totalCount > 0) {
-            accessories.push({
-              tag: { value: `${totalCount} sessions`, color: Color.SecondaryText },
+              tag: { value: `${count} sessions`, color: Color.SecondaryText },
             });
           }
 
@@ -86,7 +84,7 @@ export default function SearchProjects() {
                   <Action.Push
                     title="View Sessions"
                     icon={Icon.Message}
-                    target={<ProjectSessions project={project} sessions={sessions} statusMap={statusMap} />}
+                    target={<ProjectSessions project={project} />}
                   />
                   <Action.CopyToClipboard
                     title="Copy Path"

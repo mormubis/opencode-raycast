@@ -1,11 +1,11 @@
 import { Action, ActionPanel, Color, Detail, Icon, List } from "@raycast/api";
 import {
-  Session,
+  DbSession,
   SessionStatus,
+  useAllSessions,
   useSessionMessages,
-  useSessionTodos,
-  useSessions,
   useSessionStatus,
+  useSessionTodos,
 } from "./lib/hooks";
 import { resumeSession } from "./lib/terminal";
 
@@ -35,7 +35,7 @@ export function statusLabel(status: SessionStatus | undefined): string {
   return "Idle";
 }
 
-function SessionActivity({ session, status }: { session: Session; status: SessionStatus | undefined }) {
+function SessionActivity({ session }: { session: DbSession }) {
   const { data: todos = [] } = useSessionTodos(session.id);
   const { data: messages = [] } = useSessionMessages(session.id);
 
@@ -69,65 +69,18 @@ function SessionActivity({ session, status }: { session: Session; status: Sessio
           .join("\n\n")}`
       : "";
 
-  const statusLine = `**Status:** ${statusLabel(status)}`;
-  const markdown = [`# ${session.title || "Untitled"}`, statusLine, todoSection, activitySection]
-    .filter(Boolean)
-    .join("\n\n");
+  const markdown = [`# ${session.title}`, todoSection, activitySection].filter(Boolean).join("\n\n");
 
   return (
     <Detail
       markdown={markdown}
-      navigationTitle={session.title || "Untitled"}
+      navigationTitle={session.title}
       actions={
         <ActionPanel>
           <Action
             title="Resume in iTerm"
             icon={Icon.Terminal}
             onAction={() => resumeSession(session.directory, session.id)}
-          />
-          <Action.CopyToClipboard
-            title="Copy Session ID"
-            content={session.id}
-            shortcut={{ modifiers: ["cmd"], key: "c" }}
-          />
-        </ActionPanel>
-      }
-    />
-  );
-}
-
-export function SessionListItem({
-  session,
-  statusMap,
-}: {
-  session: Session;
-  statusMap: Record<string, SessionStatus>;
-}) {
-  const status = statusMap[session.id];
-  return (
-    <List.Item
-      title={session.title || "Untitled"}
-      subtitle={session.directory}
-      icon={Icon.Message}
-      accessories={[
-        {
-          tag: { value: statusLabel(status), color: statusColor(status) },
-        },
-        {
-          text: formatTime(session.time.updated),
-        },
-      ]}
-      actions={
-        <ActionPanel>
-          <Action
-            title="Resume in iTerm"
-            icon={Icon.Terminal}
-            onAction={() => resumeSession(session.directory, session.id)}
-          />
-          <Action.Push
-            title="View Activity"
-            icon={Icon.Eye}
-            target={<SessionActivity session={session} status={status} />}
           />
           <Action.CopyToClipboard
             title="Copy Session ID"
@@ -141,7 +94,7 @@ export function SessionListItem({
 }
 
 export default function SearchSessions() {
-  const { data: sessions = [], isLoading } = useSessions();
+  const { data: sessions = [], isLoading } = useAllSessions();
   const { data: statusMap = {} } = useSessionStatus();
 
   return (
@@ -153,7 +106,36 @@ export default function SearchSessions() {
           icon={Icon.Message}
         />
       ) : (
-        sessions.map((session) => <SessionListItem key={session.id} session={session} statusMap={statusMap} />)
+        sessions.map((session) => {
+          const status = statusMap[session.id];
+          return (
+            <List.Item
+              key={session.id}
+              title={session.title}
+              subtitle={session.directory}
+              icon={Icon.Message}
+              accessories={[
+                { tag: { value: statusLabel(status), color: statusColor(status) } },
+                { text: formatTime(session.timeUpdated) },
+              ]}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="Resume in iTerm"
+                    icon={Icon.Terminal}
+                    onAction={() => resumeSession(session.directory, session.id)}
+                  />
+                  <Action.Push title="View Activity" icon={Icon.Eye} target={<SessionActivity session={session} />} />
+                  <Action.CopyToClipboard
+                    title="Copy Session ID"
+                    content={session.id}
+                    shortcut={{ modifiers: ["cmd"], key: "c" }}
+                  />
+                </ActionPanel>
+              }
+            />
+          );
+        })
       )}
     </List>
   );
