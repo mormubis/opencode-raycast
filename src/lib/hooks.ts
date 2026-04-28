@@ -5,7 +5,7 @@ import {
   getSessionCountsByProject,
   getRecentSessions,
   getProjectSessions,
-  searchSessionsByContent,
+  searchSessions,
   getOpenSessions,
   DbSession,
   OpenSession,
@@ -69,13 +69,16 @@ export function useProjectSessions(projectId: string) {
  * Search sessions by message content. Slower but finds conversations
  * that title search misses.
  */
-export function useContentSearch(query: string) {
+/**
+ * Search sessions by title + message content (merged, deduplicated).
+ */
+export function useContentSearch(searchQuery: string) {
   return useCachedPromise(
     async (q: string) => {
       if (!q || q.length < 3) return [];
-      return searchSessionsByContent(q);
+      return searchSessions(q);
     },
-    [query],
+    [searchQuery],
   );
 }
 

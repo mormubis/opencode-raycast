@@ -160,16 +160,7 @@ export function getProjectSessions(projectId: string, limit = 200): DbSession[] 
   return sessions;
 }
 
-/**
- * Search sessions by message content (text and tool inputs).
- * Slower than title search since it scans part.data JSON, but finds
- * conversations the title search misses.
- */
-export function searchSessionsByContent(keyword: string, limit = 30): DbSession[] {
-  const escaped = keyword.replace(/'/g, "''").toLowerCase();
-  const output = query(
-    `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND s.parent_id IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
-  );
+function parseSessionRows(output: string): DbSession[] {
   const sessions: DbSession[] = [];
   for (const line of output.trim().split("\n")) {
     if (!line) continue;
@@ -184,4 +175,39 @@ export function searchSessionsByContent(keyword: string, limit = 30): DbSession[
     });
   }
   return sessions;
+}
+
+/**
+ * Search sessions using the same strategy as the recover-opencode-conversation skill:
+ * 1. Title search (fast, matches session names)
+ * 2. Content search (slower, scans message text and tool inputs)
+ * Results are merged and deduplicated, title matches first.
+ */
+export function searchSessions(keyword: string, limit = 30): DbSession[] {
+  const escaped = keyword.replace(/'/g, "''").toLowerCase();
+  const base =
+    "SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL AND parent_id IS NULL";
+
+  // 1. Title search (fast)
+  const titleResults = parseSessionRows(
+    query(`${base} AND lower(title) LIKE '%${escaped}%' ORDER BY time_updated DESC LIMIT ${limit}`),
+  );
+
+  // 2. Content search — text and tool inputs (slower, deeper)
+  const contentResults = parseSessionRows(
+    query(
+      `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND s.parent_id IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+    ),
+  );
+
+  // Merge: title matches first, then content matches (deduplicated)
+  const seen = new Set<string>();
+  const merged: DbSession[] = [];
+  for (const s of [...titleResults, ...contentResults]) {
+    if (!seen.has(s.id)) {
+      seen.add(s.id);
+      merged.push(s);
+    }
+  }
+  return merged.slice(0, limit);
 }
