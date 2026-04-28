@@ -37,9 +37,11 @@ async function focusITermByTty(tty: string): Promise<boolean> {
           tell tab i
             tell current session
               if tty is "${esc(tty)}" then
-                -- select this tab at the window level
                 tell current window of application "iTerm2"
                   select tab i
+                  if is hotkey window then
+                    reveal hotkey window
+                  end if
                 end tell
                 activate
                 return "found"
