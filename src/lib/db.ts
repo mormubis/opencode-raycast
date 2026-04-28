@@ -133,6 +133,30 @@ export function getRecentSessions(limit = 50): DbSession[] {
 }
 
 /**
+ * List sessions for a specific project.
+ */
+export function getProjectSessions(projectId: string, limit = 200): DbSession[] {
+  const escaped = projectId.replace(/'/g, "''");
+  const output = query(
+    `SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL AND parent_id IS NULL AND project_id = '${escaped}' ORDER BY time_updated DESC LIMIT ${limit}`,
+  );
+  const sessions: DbSession[] = [];
+  for (const line of output.trim().split("\n")) {
+    if (!line) continue;
+    const [id, pid, title, directory, timeCreated, timeUpdated] = line.split("|");
+    sessions.push({
+      id,
+      projectId: pid,
+      title: title || "Untitled",
+      directory,
+      timeCreated: parseInt(timeCreated, 10),
+      timeUpdated: parseInt(timeUpdated, 10),
+    });
+  }
+  return sessions;
+}
+
+/**
  * Search sessions by message content (text and tool inputs).
  * Slower than title search since it scans part.data JSON, but finds
  * conversations the title search misses.

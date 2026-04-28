@@ -3,8 +3,8 @@ import {
   DbSession,
   OpenSession,
   Project,
-  useAllSessions,
   useOpenSessions,
+  useProjectSessions,
   useProjects,
   useSessionCounts,
 } from "./lib/hooks";
@@ -41,15 +41,18 @@ function groupByDirectory(sessions: DbSession[]): Array<{ folder: string; sessio
 }
 
 function ProjectSessions({ project }: { project: Project }) {
-  const { data: allSessions = [] } = useAllSessions();
+  const { data: projectSessions = [], isLoading } = useProjectSessions(project.id);
   const { data: rawOpen } = useOpenSessions();
   const openSessions: OpenSession[] = Array.isArray(rawOpen) ? rawOpen : [];
 
-  const projectSessions = allSessions.filter((s) => s.projectId === project.id);
   const groups = groupByDirectory(projectSessions);
 
   return (
-    <List navigationTitle={`Sessions — ${projectName(project)}`} searchBarPlaceholder="Search sessions...">
+    <List
+      isLoading={isLoading}
+      navigationTitle={`Sessions — ${projectName(project)}`}
+      searchBarPlaceholder="Search sessions..."
+    >
       {projectSessions.length === 0 ? (
         <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (

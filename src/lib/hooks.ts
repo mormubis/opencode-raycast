@@ -4,6 +4,7 @@ import { getClient } from "./clients";
 import {
   getSessionCountsByProject,
   getRecentSessions,
+  getProjectSessions,
   searchSessionsByContent,
   getOpenSessions,
   DbSession,
@@ -50,6 +51,18 @@ export function useAllSessions() {
   return useCachedPromise(async () => {
     return getRecentSessions(100);
   });
+}
+
+/**
+ * Sessions for a specific project from SQLite.
+ */
+export function useProjectSessions(projectId: string) {
+  return useCachedPromise(
+    async (id: string) => {
+      return getProjectSessions(id);
+    },
+    [projectId],
+  );
 }
 
 /**
