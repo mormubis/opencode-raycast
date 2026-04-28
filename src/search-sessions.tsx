@@ -111,7 +111,7 @@ export function SessionListItem({
           <Action
             title="Resume in iTerm"
             icon={Icon.Terminal}
-            onAction={() => resumeSession(session.directory, session.id)}
+            onAction={() => resumeSession(session.directory, session.id, liveness !== undefined)}
           />
           <Action.Push title="View Activity" icon={Icon.Eye} target={<SessionActivity session={session} />} />
           <Action.CopyToClipboard

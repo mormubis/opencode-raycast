@@ -91,7 +91,7 @@ function ProjectSessions({ project }: { project: Project }) {
                       <Action
                         title="Resume in iTerm"
                         icon={Icon.Terminal}
-                        onAction={() => resumeSession(session.directory, session.id)}
+                        onAction={() => resumeSession(session.directory, session.id, liveness !== undefined)}
                       />
                       <Action.CopyToClipboard
                         title="Copy Session ID"
