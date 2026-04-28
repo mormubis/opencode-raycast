@@ -1,20 +1,23 @@
-import { createOpencodeClient, OpencodeClient } from "@opencode-ai/sdk/v2/client";
-import { discoverServers, DiscoveredServer } from "./discovery";
+import { createOpencode, OpencodeClient } from "@opencode-ai/sdk/v2";
 
-export interface ConnectedServer {
-  server: DiscoveredServer;
-  client: OpencodeClient;
-}
+let instance: { client: OpencodeClient; server: { url: string; close(): void } } | null = null;
+let initializing: Promise<OpencodeClient> | null = null;
 
-export async function getClients(): Promise<ConnectedServer[]> {
-  const servers = await discoverServers();
-  return servers.map((server) => ({
-    server,
-    client: createOpencodeClient({ baseUrl: server.baseUrl }),
-  }));
-}
+/**
+ * Get an SDK client backed by a managed OpenCode server.
+ * Starts the server once and reuses it across all hook calls.
+ */
+export async function getClient(): Promise<OpencodeClient> {
+  if (instance) return instance.client;
 
-export async function getFirstClient(): Promise<ConnectedServer | null> {
-  const clients = await getClients();
-  return clients.length > 0 ? clients[0] : null;
+  // Prevent multiple concurrent server startups
+  if (!initializing) {
+    initializing = (async () => {
+      instance = await createOpencode();
+      return instance.client;
+    })();
+  }
+
+  const client = await initializing;
+  return client;
 }
