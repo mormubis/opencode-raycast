@@ -77,7 +77,11 @@ export function getOpenSessions(): OpenSession[] {
 
 function query(sql: string): string {
   try {
-    return execSync(`sqlite3 "${DB_PATH}" "${sql}"`, { encoding: "utf-8" });
+    return execSync(`sqlite3 "${DB_PATH}"`, {
+      encoding: "utf-8",
+      input: sql,
+      timeout: 10_000,
+    });
   } catch {
     return "";
   }
