@@ -9,7 +9,11 @@ function projectName(project: Project): string {
   return parts[parts.length - 1] || project.worktree;
 }
 
-function ProjectSessions({ project, sessions, statusMap }: {
+function ProjectSessions({
+  project,
+  sessions,
+  statusMap,
+}: {
   project: Project;
   sessions: Session[];
   statusMap: Record<string, SessionStatus>;
@@ -19,15 +23,9 @@ function ProjectSessions({ project, sessions, statusMap }: {
   return (
     <List navigationTitle={`Sessions — ${projectName(project)}`} searchBarPlaceholder="Search sessions...">
       {projectSessions.length === 0 ? (
-        <List.EmptyView
-          title="No Sessions"
-          description="No sessions found for this project."
-          icon={Icon.Message}
-        />
+        <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (
-        projectSessions.map((session) => (
-          <SessionListItem key={session.id} session={session} statusMap={statusMap} />
-        ))
+        projectSessions.map((session) => <SessionListItem key={session.id} session={session} statusMap={statusMap} />)
       )}
     </List>
   );
@@ -84,21 +82,11 @@ export default function SearchProjects() {
               accessories={accessories}
               actions={
                 <ActionPanel>
-                  <Action
-                    title="Open in iTerm"
-                    icon={Icon.Terminal}
-                    onAction={() => openOpenCode(project.worktree)}
-                  />
+                  <Action title="Open in iTerm" icon={Icon.Terminal} onAction={() => openOpenCode(project.worktree)} />
                   <Action.Push
                     title="View Sessions"
                     icon={Icon.Message}
-                    target={
-                      <ProjectSessions
-                        project={project}
-                        sessions={sessions}
-                        statusMap={statusMap}
-                      />
-                    }
+                    target={<ProjectSessions project={project} sessions={sessions} statusMap={statusMap} />}
                   />
                   <Action.CopyToClipboard
                     title="Copy Path"

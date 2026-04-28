@@ -1,5 +1,12 @@
 import { Action, ActionPanel, Color, Detail, Icon, List } from "@raycast/api";
-import { Session, SessionStatus, useSessionMessages, useSessionTodos, useSessions, useSessionStatus } from "./lib/hooks";
+import {
+  Session,
+  SessionStatus,
+  useSessionMessages,
+  useSessionTodos,
+  useSessions,
+  useSessionStatus,
+} from "./lib/hooks";
 import { resumeSession } from "./lib/terminal";
 
 export function formatTime(timestamp: number): string {
@@ -8,8 +15,6 @@ export function formatTime(timestamp: number): string {
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
   if (diffSec < 60) return "just now";
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHour < 24) return `${diffHour}h ago`;
@@ -39,7 +44,13 @@ function SessionActivity({ session, status }: { session: Session; status: Sessio
       ? `## Tasks\n\n${todos
           .map((t) => {
             const icon =
-              t.status === "completed" ? "✅" : t.status === "in_progress" ? "🔄" : t.status === "cancelled" ? "❌" : "⬜";
+              t.status === "completed"
+                ? "✅"
+                : t.status === "in_progress"
+                  ? "🔄"
+                  : t.status === "cancelled"
+                    ? "❌"
+                    : "⬜";
             return `${icon} ${t.content}`;
           })
           .join("\n")}`
@@ -74,14 +85,24 @@ function SessionActivity({ session, status }: { session: Session; status: Sessio
             icon={Icon.Terminal}
             onAction={() => resumeSession(session.directory, session.id)}
           />
-          <Action.CopyToClipboard title="Copy Session ID" content={session.id} shortcut={{ modifiers: ["cmd"], key: "c" }} />
+          <Action.CopyToClipboard
+            title="Copy Session ID"
+            content={session.id}
+            shortcut={{ modifiers: ["cmd"], key: "c" }}
+          />
         </ActionPanel>
       }
     />
   );
 }
 
-export function SessionListItem({ session, statusMap }: { session: Session; statusMap: Record<string, SessionStatus> }) {
+export function SessionListItem({
+  session,
+  statusMap,
+}: {
+  session: Session;
+  statusMap: Record<string, SessionStatus>;
+}) {
   const status = statusMap[session.id];
   return (
     <List.Item
@@ -108,7 +129,11 @@ export function SessionListItem({ session, statusMap }: { session: Session; stat
             icon={Icon.Eye}
             target={<SessionActivity session={session} status={status} />}
           />
-          <Action.CopyToClipboard title="Copy Session ID" content={session.id} shortcut={{ modifiers: ["cmd"], key: "c" }} />
+          <Action.CopyToClipboard
+            title="Copy Session ID"
+            content={session.id}
+            shortcut={{ modifiers: ["cmd"], key: "c" }}
+          />
         </ActionPanel>
       }
     />
@@ -128,9 +153,7 @@ export default function SearchSessions() {
           icon={Icon.Message}
         />
       ) : (
-        sessions.map((session) => (
-          <SessionListItem key={session.id} session={session} statusMap={statusMap} />
-        ))
+        sessions.map((session) => <SessionListItem key={session.id} session={session} statusMap={statusMap} />)
       )}
     </List>
   );

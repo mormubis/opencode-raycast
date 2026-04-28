@@ -23,9 +23,7 @@ export function useProjects() {
     const clients = await getClients();
     if (clients.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      clients.map(({ client }) => client.project.list()),
-    );
+    const results = await Promise.allSettled(clients.map(({ client }) => client.project.list()));
 
     const projects: Project[] = [];
     for (const result of results) {
@@ -42,9 +40,7 @@ export function useSessions() {
     const clients = await getClients();
     if (clients.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      clients.map(({ client }) => client.session.list()),
-    );
+    const results = await Promise.allSettled(clients.map(({ client }) => client.session.list()));
 
     const seen = new Set<string>();
     const sessions: Session[] = [];
@@ -69,9 +65,7 @@ export function useSessionStatus() {
     const clients = await getClients();
     if (clients.length === 0) return {} as Record<string, SessionStatus>;
 
-    const results = await Promise.allSettled(
-      clients.map(({ client }) => client.session.status()),
-    );
+    const results = await Promise.allSettled(clients.map(({ client }) => client.session.status()));
 
     const statusMap: Record<string, SessionStatus> = {};
     for (const result of results) {
@@ -89,9 +83,7 @@ export function useSessionTodos(sessionId: string) {
       const clients = await getClients();
       if (clients.length === 0) return [] as Todo[];
 
-      const results = await Promise.allSettled(
-        clients.map(({ client }) => client.session.todo({ sessionID: id })),
-      );
+      const results = await Promise.allSettled(clients.map(({ client }) => client.session.todo({ sessionID: id })));
 
       for (const result of results) {
         if (result.status === "fulfilled" && result.value.data) {
@@ -111,9 +103,7 @@ export function useSessionMessages(sessionId: string) {
       if (clients.length === 0) return [] as MessageWithParts[];
 
       const results = await Promise.allSettled(
-        clients.map(({ client }) =>
-          client.session.messages({ sessionID: id, limit: 10 }),
-        ),
+        clients.map(({ client }) => client.session.messages({ sessionID: id, limit: 10 })),
       );
 
       for (const result of results) {
