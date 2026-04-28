@@ -148,7 +148,8 @@ export default function SearchSessions() {
     mode === "content" ? searchText : "",
   );
   const { data: statusMap = {} } = useSessionStatus();
-  const { data: openIds = [] } = useOpenSessions();
+  const { data: rawOpenIds } = useOpenSessions();
+  const openIds = Array.isArray(rawOpenIds) ? rawOpenIds : [];
 
   const isContent = mode === "content";
   const sessions = isContent ? contentResults : recentSessions;
