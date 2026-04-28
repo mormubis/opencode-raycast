@@ -1,7 +1,7 @@
 import { useCachedPromise } from "@raycast/utils";
 import { Project, Session, SessionStatus, Todo } from "@opencode-ai/sdk/v2/client";
 import { getClient } from "./clients";
-import { getSessionCountsByProject, getRecentSessions, DbSession } from "./db";
+import { getSessionCountsByProject, getRecentSessions, searchSessionsByContent, DbSession } from "./db";
 
 export type { Project, Session, SessionStatus, Todo, DbSession };
 
@@ -43,6 +43,20 @@ export function useAllSessions() {
   return useCachedPromise(async () => {
     return getRecentSessions(100);
   });
+}
+
+/**
+ * Search sessions by message content. Slower but finds conversations
+ * that title search misses.
+ */
+export function useContentSearch(query: string) {
+  return useCachedPromise(
+    async (q: string) => {
+      if (!q || q.length < 3) return [];
+      return searchSessionsByContent(q);
+    },
+    [query],
+  );
 }
 
 export function useSessionStatus() {

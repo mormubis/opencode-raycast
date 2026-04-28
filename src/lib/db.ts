@@ -60,9 +60,27 @@ export function getRecentSessions(limit = 50): DbSession[] {
 }
 
 /**
- * Get the project worktree path for a project ID.
+ * Search sessions by message content (text and tool inputs).
+ * Slower than title search since it scans part.data JSON, but finds
+ * conversations the title search misses.
  */
-export function getProjectWorktree(projectId: string): string | null {
-  const output = query(`SELECT worktree FROM project WHERE id = '${projectId}'`);
-  return output.trim() || null;
+export function searchSessionsByContent(keyword: string, limit = 30): DbSession[] {
+  const escaped = keyword.replace(/'/g, "''").toLowerCase();
+  const output = query(
+    `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+  );
+  const sessions: DbSession[] = [];
+  for (const line of output.trim().split("\n")) {
+    if (!line) continue;
+    const [id, projectId, title, directory, timeCreated, timeUpdated] = line.split("|");
+    sessions.push({
+      id,
+      projectId,
+      title: title || "Untitled",
+      directory,
+      timeCreated: parseInt(timeCreated, 10),
+      timeUpdated: parseInt(timeUpdated, 10),
+    });
+  }
+  return sessions;
 }
