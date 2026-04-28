@@ -5,6 +5,7 @@ import {
   SessionStatus,
   useAllSessions,
   useContentSearch,
+  useOpenSessions,
   useSessionMessages,
   useSessionStatus,
   useSessionTodos,
@@ -95,18 +96,30 @@ function SessionActivity({ session }: { session: DbSession }) {
   );
 }
 
-function SessionListItem({ session, statusMap }: { session: DbSession; statusMap: Record<string, SessionStatus> }) {
+function SessionListItem({
+  session,
+  statusMap,
+  isOpen,
+}: {
+  session: DbSession;
+  statusMap: Record<string, SessionStatus>;
+  isOpen: boolean;
+}) {
   const status = statusMap[session.id];
+  const accessories: List.Item.Accessory[] = [];
+  if (isOpen) {
+    accessories.push({ tag: { value: "Open", color: Color.Blue } });
+  }
+  accessories.push({ tag: { value: statusLabel(status), color: statusColor(status) } });
+  accessories.push({ text: formatTime(session.timeUpdated) });
+
   return (
     <List.Item
       key={session.id}
       title={session.title}
       subtitle={session.directory}
       icon={Icon.Message}
-      accessories={[
-        { tag: { value: statusLabel(status), color: statusColor(status) } },
-        { text: formatTime(session.timeUpdated) },
-      ]}
+      accessories={accessories}
       actions={
         <ActionPanel>
           <Action
@@ -135,6 +148,7 @@ export default function SearchSessions() {
     mode === "content" ? searchText : "",
   );
   const { data: statusMap = {} } = useSessionStatus();
+  const { data: openIds = new Set<string>() } = useOpenSessions();
 
   const isContent = mode === "content";
   const sessions = isContent ? contentResults : recentSessions;
@@ -172,7 +186,9 @@ export default function SearchSessions() {
           icon={isContent ? Icon.MagnifyingGlass : Icon.Message}
         />
       ) : (
-        sessions.map((session) => <SessionListItem key={session.id} session={session} statusMap={statusMap} />)
+        sessions.map((session) => (
+          <SessionListItem key={session.id} session={session} statusMap={statusMap} isOpen={openIds.has(session.id)} />
+        ))
       )}
     </List>
   );

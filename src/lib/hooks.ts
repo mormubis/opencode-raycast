@@ -1,7 +1,13 @@
 import { useCachedPromise } from "@raycast/utils";
 import { Project, Session, SessionStatus, Todo } from "@opencode-ai/sdk/v2/client";
 import { getClient } from "./clients";
-import { getSessionCountsByProject, getRecentSessions, searchSessionsByContent, DbSession } from "./db";
+import {
+  getSessionCountsByProject,
+  getRecentSessions,
+  searchSessionsByContent,
+  getOpenSessionIds,
+  DbSession,
+} from "./db";
 
 export type { Project, Session, SessionStatus, Todo, DbSession };
 
@@ -57,6 +63,15 @@ export function useContentSearch(query: string) {
     },
     [query],
   );
+}
+
+/**
+ * Set of session IDs currently open in an OpenCode TUI.
+ */
+export function useOpenSessions() {
+  return useCachedPromise(async () => {
+    return getOpenSessionIds();
+  });
 }
 
 export function useSessionStatus() {
