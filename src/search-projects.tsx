@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import {
   DbSession,
@@ -41,22 +42,36 @@ function groupByDirectory(sessions: DbSession[]): Array<{ folder: string; sessio
 }
 
 function ProjectSessions({ project }: { project: Project }) {
+  const [folder, setFolder] = useState<string>("all");
   const { data: projectSessions = [], isLoading } = useProjectSessions(project.id);
   const { data: rawOpen } = useOpenSessions();
   const openSessions: OpenSession[] = Array.isArray(rawOpen) ? rawOpen : [];
 
   const groups = groupByDirectory(projectSessions);
+  const filtered = folder === "all" ? groups : groups.filter((g) => g.folder === folder);
 
   return (
     <List
       isLoading={isLoading}
       navigationTitle={`Sessions — ${projectName(project)}`}
       searchBarPlaceholder="Search sessions..."
+      searchBarAccessory={
+        groups.length > 1 ? (
+          <List.Dropdown tooltip="Filter by folder" onChange={setFolder} value={folder}>
+            <List.Dropdown.Item title="All Folders" value="all" icon={Icon.Folder} />
+            <List.Dropdown.Section title="Folders">
+              {groups.map((g) => (
+                <List.Dropdown.Item key={g.folder} title={`${g.folder} (${g.sessions.length})`} value={g.folder} />
+              ))}
+            </List.Dropdown.Section>
+          </List.Dropdown>
+        ) : undefined
+      }
     >
       {projectSessions.length === 0 ? (
         <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (
-        groups.map((group) => (
+        filtered.map((group) => (
           <List.Section key={group.folder} title={group.folder} subtitle={`${group.sessions.length}`}>
             {group.sessions.map((session) => {
               const liveness = getLiveness(openSessions, session.id);
@@ -69,7 +84,6 @@ function ProjectSessions({ project }: { project: Project }) {
                 <List.Item
                   key={session.id}
                   title={session.title}
-                  subtitle={group.folder}
                   icon={Icon.Message}
                   accessories={accessories}
                   actions={
