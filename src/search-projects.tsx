@@ -69,7 +69,7 @@ function ProjectSessions({ project }: { project: Project }) {
                 <List.Item
                   key={session.id}
                   title={session.title}
-                  keywords={[group.folder]}
+                  subtitle={group.folder}
                   icon={Icon.Message}
                   accessories={accessories}
                   actions={
