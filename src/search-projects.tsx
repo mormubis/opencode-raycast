@@ -80,12 +80,12 @@ export default function SearchProjects() {
               accessories={accessories}
               actions={
                 <ActionPanel>
-                  <Action title="Open in iTerm" icon={Icon.Terminal} onAction={() => openOpenCode(project.worktree)} />
                   <Action.Push
                     title="View Sessions"
                     icon={Icon.Message}
                     target={<ProjectSessions project={project} />}
                   />
+                  <Action title="Open in iTerm" icon={Icon.Terminal} onAction={() => openOpenCode(project.worktree)} />
                   <Action.CopyToClipboard
                     title="Copy Path"
                     content={project.worktree}
