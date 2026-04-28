@@ -1,16 +1,7 @@
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
-import {
-  DbSession,
-  Project,
-  SessionStatus,
-  useAllSessions,
-  useOpenSessions,
-  useProjects,
-  useSessionCounts,
-  useSessionStatus,
-} from "./lib/hooks";
+import { OpenSession, Project, useAllSessions, useOpenSessions, useProjects, useSessionCounts } from "./lib/hooks";
 import { openOpenCode, resumeSession } from "./lib/terminal";
-import { formatTime, statusColor, statusLabel } from "./search-sessions";
+import { formatTime, livenessTag } from "./search-sessions";
 
 function projectName(project: Project): string {
   if (project.name) return project.name;
@@ -18,11 +9,15 @@ function projectName(project: Project): string {
   return parts[parts.length - 1] || project.worktree;
 }
 
+function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSession["liveness"] | undefined {
+  const found = openSessions.find((o) => o.id === sessionId);
+  return found?.liveness;
+}
+
 function ProjectSessions({ project }: { project: Project }) {
   const { data: allSessions = [] } = useAllSessions();
-  const { data: statusMap = {} } = useSessionStatus();
-  const { data: rawOpenIds } = useOpenSessions();
-  const openIds = Array.isArray(rawOpenIds) ? rawOpenIds : [];
+  const { data: rawOpen } = useOpenSessions();
+  const openSessions: OpenSession[] = Array.isArray(rawOpen) ? rawOpen : [];
 
   const projectSessions = allSessions.filter((s) => s.projectId === project.id);
 
@@ -31,57 +26,39 @@ function ProjectSessions({ project }: { project: Project }) {
       {projectSessions.length === 0 ? (
         <List.EmptyView title="No Sessions" description="No sessions found for this project." icon={Icon.Message} />
       ) : (
-        projectSessions.map((session) => (
-          <ProjectSessionItem
-            key={session.id}
-            session={session}
-            statusMap={statusMap}
-            isOpen={openIds.includes(session.id)}
-          />
-        ))
+        projectSessions.map((session) => {
+          const liveness = getLiveness(openSessions, session.id);
+          const accessories: List.Item.Accessory[] = [];
+          const tag = livenessTag(liveness);
+          if (tag) accessories.push(tag);
+          accessories.push({ text: formatTime(session.timeUpdated) });
+
+          return (
+            <List.Item
+              key={session.id}
+              title={session.title}
+              subtitle={session.directory}
+              icon={Icon.Message}
+              accessories={accessories}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="Resume in iTerm"
+                    icon={Icon.Terminal}
+                    onAction={() => resumeSession(session.directory, session.id)}
+                  />
+                  <Action.CopyToClipboard
+                    title="Copy Session ID"
+                    content={session.id}
+                    shortcut={{ modifiers: ["cmd"], key: "c" }}
+                  />
+                </ActionPanel>
+              }
+            />
+          );
+        })
       )}
     </List>
-  );
-}
-
-function ProjectSessionItem({
-  session,
-  statusMap,
-  isOpen,
-}: {
-  session: DbSession;
-  statusMap: Record<string, SessionStatus>;
-  isOpen: boolean;
-}) {
-  const status = statusMap[session.id];
-  const accessories: List.Item.Accessory[] = [];
-  if (isOpen) {
-    accessories.push({ tag: { value: "Open", color: Color.Blue } });
-  }
-  accessories.push({ tag: { value: statusLabel(status), color: statusColor(status) } });
-  accessories.push({ text: formatTime(session.timeUpdated) });
-
-  return (
-    <List.Item
-      title={session.title}
-      subtitle={session.directory}
-      icon={Icon.Message}
-      accessories={accessories}
-      actions={
-        <ActionPanel>
-          <Action
-            title="Resume in iTerm"
-            icon={Icon.Terminal}
-            onAction={() => resumeSession(session.directory, session.id)}
-          />
-          <Action.CopyToClipboard
-            title="Copy Session ID"
-            content={session.id}
-            shortcut={{ modifiers: ["cmd"], key: "c" }}
-          />
-        </ActionPanel>
-      }
-    />
   );
 }
 

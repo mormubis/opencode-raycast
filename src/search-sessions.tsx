@@ -2,12 +2,11 @@ import { useState } from "react";
 import { Action, ActionPanel, Color, Detail, Icon, List } from "@raycast/api";
 import {
   DbSession,
-  SessionStatus,
+  OpenSession,
   useAllSessions,
   useContentSearch,
   useOpenSessions,
   useSessionMessages,
-  useSessionStatus,
   useSessionTodos,
 } from "./lib/hooks";
 import { resumeSession } from "./lib/terminal";
@@ -24,18 +23,10 @@ export function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-export function statusColor(status: SessionStatus | undefined): Color {
-  if (!status) return Color.SecondaryText;
-  if (status.type === "busy") return Color.Green;
-  if (status.type === "retry") return Color.Yellow;
-  return Color.SecondaryText;
-}
-
-export function statusLabel(status: SessionStatus | undefined): string {
-  if (!status) return "Idle";
-  if (status.type === "busy") return "Running";
-  if (status.type === "retry") return "Waiting";
-  return "Idle";
+export function livenessTag(liveness: OpenSession["liveness"] | undefined): List.Item.Accessory | null {
+  if (liveness === "active") return { tag: { value: "Active", color: Color.Green } };
+  if (liveness === "open") return { tag: { value: "Open", color: Color.Blue } };
+  return null;
 }
 
 function SessionActivity({ session }: { session: DbSession }) {
@@ -96,21 +87,16 @@ function SessionActivity({ session }: { session: DbSession }) {
   );
 }
 
-function SessionListItem({
+export function SessionListItem({
   session,
-  statusMap,
-  isOpen,
+  liveness,
 }: {
   session: DbSession;
-  statusMap: Record<string, SessionStatus>;
-  isOpen: boolean;
+  liveness: OpenSession["liveness"] | undefined;
 }) {
-  const status = statusMap[session.id];
   const accessories: List.Item.Accessory[] = [];
-  if (isOpen) {
-    accessories.push({ tag: { value: "Open", color: Color.Blue } });
-  }
-  accessories.push({ tag: { value: statusLabel(status), color: statusColor(status) } });
+  const tag = livenessTag(liveness);
+  if (tag) accessories.push(tag);
   accessories.push({ text: formatTime(session.timeUpdated) });
 
   return (
@@ -139,6 +125,11 @@ function SessionListItem({
   );
 }
 
+function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSession["liveness"] | undefined {
+  const found = openSessions.find((o) => o.id === sessionId);
+  return found?.liveness;
+}
+
 export default function SearchSessions() {
   const [mode, setMode] = useState<string>("recent");
   const [searchText, setSearchText] = useState("");
@@ -147,9 +138,8 @@ export default function SearchSessions() {
   const { data: contentResults = [], isLoading: contentLoading } = useContentSearch(
     mode === "content" ? searchText : "",
   );
-  const { data: statusMap = {} } = useSessionStatus();
-  const { data: rawOpenIds } = useOpenSessions();
-  const openIds = Array.isArray(rawOpenIds) ? rawOpenIds : [];
+  const { data: rawOpen } = useOpenSessions();
+  const openSessions: OpenSession[] = Array.isArray(rawOpen) ? rawOpen : [];
 
   const isContent = mode === "content";
   const sessions = isContent ? contentResults : recentSessions;
@@ -188,12 +178,7 @@ export default function SearchSessions() {
         />
       ) : (
         sessions.map((session) => (
-          <SessionListItem
-            key={session.id}
-            session={session}
-            statusMap={statusMap}
-            isOpen={openIds.includes(session.id)}
-          />
+          <SessionListItem key={session.id} session={session} liveness={getLiveness(openSessions, session.id)} />
         ))
       )}
     </List>

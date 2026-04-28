@@ -8,21 +8,71 @@ const DB_PATH = join(homedir(), ".local", "share", "opencode", "opencode.db");
  * Find session IDs currently open in OpenCode TUI instances
  * by parsing process arguments.
  */
-export function getOpenSessionIds(): string[] {
+export type SessionLiveness = "active" | "open" | "closed";
+
+export interface OpenSession {
+  id: string;
+  liveness: SessionLiveness;
+}
+
+/**
+ * Detect which sessions are open in a terminal and whether they're actively working.
+ * - "active": open in terminal AND (updated in last 60s OR has in_progress todos)
+ * - "open": open in terminal but idle
+ * - Sessions not in the result are closed.
+ */
+export function getOpenSessions(): OpenSession[] {
+  // 1. Find session IDs from process list
+  const processIds: string[] = [];
   try {
     const output = execSync("ps aux", { encoding: "utf-8" });
-    const ids: string[] = [];
     for (const line of output.split("\n")) {
       if (!line.includes("opencode")) continue;
       const match = line.match(/(?:-s|--session)[=\s]+(\S+)/);
-      if (match && !ids.includes(match[1])) {
-        ids.push(match[1]);
+      if (match && !processIds.includes(match[1])) {
+        processIds.push(match[1]);
       }
     }
-    return ids;
   } catch {
     return [];
   }
+
+  if (processIds.length === 0) return [];
+
+  // 2. Check which are recently active (updated in last 60s) or have in_progress todos
+  const cutoff = Date.now() - 60_000;
+  const quoted = processIds.map((id) => `'${id}'`).join(",");
+
+  const recentlyUpdated = new Set<string>();
+  try {
+    const output = execSync(
+      `sqlite3 "${DB_PATH}" "SELECT id FROM session WHERE id IN (${quoted}) AND time_updated > ${cutoff}"`,
+      { encoding: "utf-8" },
+    );
+    for (const line of output.trim().split("\n")) {
+      if (line) recentlyUpdated.add(line);
+    }
+  } catch {
+    // ignore
+  }
+
+  const hasTodos = new Set<string>();
+  try {
+    const output = execSync(
+      `sqlite3 "${DB_PATH}" "SELECT DISTINCT session_id FROM todo WHERE session_id IN (${quoted}) AND status = 'in_progress'"`,
+      { encoding: "utf-8" },
+    );
+    for (const line of output.trim().split("\n")) {
+      if (line) hasTodos.add(line);
+    }
+  } catch {
+    // ignore
+  }
+
+  return processIds.map((id) => ({
+    id,
+    liveness: recentlyUpdated.has(id) || hasTodos.has(id) ? "active" : "open",
+  }));
 }
 
 function query(sql: string): string {

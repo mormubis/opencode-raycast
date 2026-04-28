@@ -5,11 +5,12 @@ import {
   getSessionCountsByProject,
   getRecentSessions,
   searchSessionsByContent,
-  getOpenSessionIds,
+  getOpenSessions,
   DbSession,
+  OpenSession,
 } from "./db";
 
-export type { Project, Session, SessionStatus, Todo, DbSession };
+export type { Project, Session, SessionStatus, Todo, DbSession, OpenSession };
 
 export type MessageWithParts = {
   info: {
@@ -66,11 +67,11 @@ export function useContentSearch(query: string) {
 }
 
 /**
- * Set of session IDs currently open in an OpenCode TUI.
+ * Sessions currently open in an OpenCode TUI, with liveness info.
  */
 export function useOpenSessions() {
   return useCachedPromise(async () => {
-    return getOpenSessionIds();
+    return getOpenSessions();
   });
 }
 
