@@ -148,7 +148,7 @@ export default function SearchSessions() {
     mode === "content" ? searchText : "",
   );
   const { data: statusMap = {} } = useSessionStatus();
-  const { data: openIds = new Set<string>() } = useOpenSessions();
+  const { data: openIds = [] } = useOpenSessions();
 
   const isContent = mode === "content";
   const sessions = isContent ? contentResults : recentSessions;
@@ -187,7 +187,12 @@ export default function SearchSessions() {
         />
       ) : (
         sessions.map((session) => (
-          <SessionListItem key={session.id} session={session} statusMap={statusMap} isOpen={openIds.has(session.id)} />
+          <SessionListItem
+            key={session.id}
+            session={session}
+            statusMap={statusMap}
+            isOpen={openIds.includes(session.id)}
+          />
         ))
       )}
     </List>

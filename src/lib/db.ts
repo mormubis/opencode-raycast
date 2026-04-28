@@ -8,21 +8,20 @@ const DB_PATH = join(homedir(), ".local", "share", "opencode", "opencode.db");
  * Find session IDs currently open in OpenCode TUI instances
  * by parsing process arguments.
  */
-export function getOpenSessionIds(): Set<string> {
+export function getOpenSessionIds(): string[] {
   try {
     const output = execSync("ps aux", { encoding: "utf-8" });
-    const ids = new Set<string>();
+    const ids: string[] = [];
     for (const line of output.split("\n")) {
       if (!line.includes("opencode")) continue;
-      // Match -s <id> or --session <id> or --session=<id>
       const match = line.match(/(?:-s|--session)[=\s]+(\S+)/);
-      if (match) {
-        ids.add(match[1]);
+      if (match && !ids.includes(match[1])) {
+        ids.push(match[1]);
       }
     }
     return ids;
   } catch {
-    return new Set();
+    return [];
   }
 }
 
