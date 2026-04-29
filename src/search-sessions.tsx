@@ -74,7 +74,7 @@ function SessionActivity({ session }: { session: DbSession }) {
       actions={
         <ActionPanel>
           <Action
-            title="Resume in iTerm"
+            title="Resume in Terminal"
             icon={Icon.Terminal}
             onAction={() => resumeSession(session.directory, session.id)}
           />
@@ -111,7 +111,7 @@ export function SessionListItem({
       actions={
         <ActionPanel>
           <Action
-            title="Resume in iTerm"
+            title="Resume in Terminal"
             icon={Icon.Terminal}
             onAction={() => resumeSession(session.directory, session.id, liveness !== undefined)}
           />

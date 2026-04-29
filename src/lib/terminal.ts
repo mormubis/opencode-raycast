@@ -1,13 +1,22 @@
 import { execSync } from "child_process";
+import { getPreferenceValues } from "@raycast/api";
 import { runAppleScript } from "@raycast/utils";
 
 function esc(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-/**
- * Find the TTY of an opencode process running a specific session ID.
- */
+function shellQuote(str: string): string {
+  return `'${str.replace(/'/g, "'\\''")}'`;
+}
+
+function getTerminal(): string {
+  const prefs = getPreferenceValues<{ terminal?: string }>();
+  return prefs.terminal ?? "iterm2";
+}
+
+// --- iTerm2 ---
+
 function findTtyForSession(sessionId: string): string | null {
   try {
     const output = execSync("ps aux", { encoding: "utf-8" });
@@ -25,10 +34,6 @@ function findTtyForSession(sessionId: string): string | null {
   }
 }
 
-/**
- * Focus the iTerm2 tab whose current session matches the given TTY.
- * Searches current window, finds the tab index, then selects it.
- */
 async function focusITermByTty(tty: string): Promise<boolean> {
   const result = await runAppleScript(`
     tell application "iTerm2"
@@ -70,21 +75,39 @@ async function openInITerm(directory: string, command: string): Promise<void> {
   `);
 }
 
-export async function openOpenCode(directory: string): Promise<void> {
-  return openInITerm(directory, "opencode");
+// --- Terminal.app ---
+
+async function openInTerminalApp(directory: string, command: string): Promise<void> {
+  await runAppleScript(`
+    tell application "Terminal"
+      activate
+      do script "cd \\"${esc(directory)}\\" && ${esc(command)}"
+    end tell
+  `);
 }
 
-function shellQuote(str: string): string {
-  return `'${str.replace(/'/g, "'\\''")}'`;
+// --- Public API ---
+
+export async function openOpenCode(directory: string): Promise<void> {
+  if (getTerminal() === "iterm2") {
+    return openInITerm(directory, "opencode");
+  }
+  return openInTerminalApp(directory, "opencode");
 }
 
 export async function resumeSession(directory: string, sessionId: string, isOpen: boolean = false): Promise<void> {
-  if (isOpen) {
+  const cmd = `opencode -s ${shellQuote(sessionId)}`;
+
+  if (isOpen && getTerminal() === "iterm2") {
     const tty = findTtyForSession(sessionId);
     if (tty) {
       const focused = await focusITermByTty(tty);
       if (focused) return;
     }
   }
-  return openInITerm(directory, `opencode -s ${shellQuote(sessionId)}`);
+
+  if (getTerminal() === "iterm2") {
+    return openInITerm(directory, cmd);
+  }
+  return openInTerminalApp(directory, cmd);
 }

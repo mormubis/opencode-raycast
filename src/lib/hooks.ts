@@ -1,6 +1,8 @@
 import { useCachedPromise } from "@raycast/utils";
 import { Project, Todo } from "@opencode-ai/sdk/v2/client";
-import { getClient } from "./clients";
+import { getClient, OpencodeNotInstalledError } from "./clients";
+
+export { OpencodeNotInstalledError };
 import {
   getSessionCountsByProject,
   getRecentSessions,

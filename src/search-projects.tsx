@@ -86,7 +86,7 @@ function ProjectSessions({ project }: { project: Project }) {
                   actions={
                     <ActionPanel>
                       <Action
-                        title="Resume in iTerm"
+                        title="Resume in Terminal"
                         icon={Icon.Terminal}
                         onAction={() => resumeSession(session.directory, session.id, liveness !== undefined)}
                       />
@@ -108,14 +108,22 @@ function ProjectSessions({ project }: { project: Project }) {
 }
 
 export default function SearchProjects() {
-  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useProjects();
   const { data: sessionCounts = {} } = useSessionCounts();
+
+  const notInstalled = projectsError?.message?.includes("not installed");
 
   return (
     <List isLoading={projectsLoading} searchBarPlaceholder="Search projects...">
-      {projects.length === 0 && !projectsLoading ? (
+      {notInstalled ? (
         <List.EmptyView
-          title="No OpenCode Servers Found"
+          title="OpenCode Not Installed"
+          description="Install it with: brew install anomalyco/tap/opencode"
+          icon={Icon.Warning}
+        />
+      ) : projects.length === 0 && !projectsLoading ? (
+        <List.EmptyView
+          title="No Projects Found"
           description="Start OpenCode in a terminal to see projects here."
           icon={Icon.Folder}
         />
@@ -143,7 +151,11 @@ export default function SearchProjects() {
                     icon={Icon.Message}
                     target={<ProjectSessions project={project} />}
                   />
-                  <Action title="Open in iTerm" icon={Icon.Terminal} onAction={() => openOpenCode(project.worktree)} />
+                  <Action
+                    title="Open in Terminal"
+                    icon={Icon.Terminal}
+                    onAction={() => openOpenCode(project.worktree)}
+                  />
                   <Action.CopyToClipboard
                     title="Copy Path"
                     content={project.worktree}

@@ -12,7 +12,6 @@ function ensurePath(): void {
   const current = process.env.PATH ?? "";
   const extraPaths = ["/opt/homebrew/bin", "/usr/local/bin"];
 
-  // Also try to get the user's shell PATH
   try {
     const shellPath = execSync("zsh -ilc 'echo $PATH'", { encoding: "utf-8" }).trim();
     if (shellPath) {
@@ -30,17 +29,36 @@ function ensurePath(): void {
   }
 }
 
+function isOpencodeInstalled(): boolean {
+  try {
+    execSync("which opencode", { encoding: "utf-8", stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export class OpencodeNotInstalledError extends Error {
+  constructor() {
+    super("OpenCode is not installed. Install it with: brew install anomalyco/tap/opencode");
+    this.name = "OpencodeNotInstalledError";
+  }
+}
+
 /**
  * Get an SDK client backed by a managed OpenCode server.
  * Starts the server once and reuses it across all hook calls.
+ * Throws OpencodeNotInstalledError if the binary is missing.
  */
 export async function getClient(): Promise<OpencodeClient> {
   if (instance) return instance.client;
 
-  // Prevent multiple concurrent server startups
   if (!initializing) {
     initializing = (async () => {
       ensurePath();
+      if (!isOpencodeInstalled()) {
+        throw new OpencodeNotInstalledError();
+      }
       instance = await createOpencode({ port: 0 });
       return instance.client;
     })();
