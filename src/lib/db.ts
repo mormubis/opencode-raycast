@@ -75,6 +75,23 @@ export function getOpenSessions(): OpenSession[] {
   }));
 }
 
+export interface DbProject {
+  id: string;
+  worktree: string;
+  name: string;
+}
+
+export function getProjects(): DbProject[] {
+  const output = query("SELECT id, worktree, name FROM project ORDER BY time_updated DESC");
+  const projects: DbProject[] = [];
+  for (const line of output.trim().split("\n")) {
+    if (!line) continue;
+    const [id, worktree, name] = line.split("|");
+    projects.push({ id, worktree, name: name || "" });
+  }
+  return projects;
+}
+
 function query(sql: string): string {
   try {
     return execSync(`sqlite3 "${DB_PATH}"`, {
