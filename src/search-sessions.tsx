@@ -131,7 +131,7 @@ function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSessio
 }
 
 export default function SearchSessions() {
-  const [mode, setMode] = useState<string>("recent");
+  const [mode, setMode] = useState<string>("content");
   const [searchText, setSearchText] = useState("");
 
   const { data: recentSessions = [], isLoading: recentLoading } = useAllSessions();
