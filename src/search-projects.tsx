@@ -10,17 +10,12 @@ import {
   useSessionCounts,
 } from "./lib/hooks";
 import { openOpenCode, resumeSession } from "./lib/terminal";
-import { formatTime, livenessTag } from "./search-sessions";
+import { formatTime, getLiveness, livenessTag } from "./search-sessions";
 
 function projectName(project: Project): string {
   if (project.name) return project.name;
   const parts = project.worktree.replace(/\/$/, "").split("/");
   return parts[parts.length - 1] || project.worktree;
-}
-
-function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSession["liveness"] | undefined {
-  const found = openSessions.find((o) => o.id === sessionId);
-  return found?.liveness;
 }
 
 function dirBasename(directory: string): string {
@@ -38,7 +33,9 @@ function groupByDirectory(sessions: DbSession[]): Array<{ folder: string; sessio
   // Sort groups by most recent session in each, descending
   return Array.from(groups.entries())
     .map(([folder, items]) => ({ folder, sessions: items }))
-    .sort((a, b) => b.sessions[0].timeUpdated - a.sessions[0].timeUpdated);
+    .sort(
+      (a, b) => Math.max(...b.sessions.map((s) => s.timeUpdated)) - Math.max(...a.sessions.map((s) => s.timeUpdated)),
+    );
 }
 
 function ProjectSessions({ project }: { project: Project }) {
@@ -96,7 +93,7 @@ function ProjectSessions({ project }: { project: Project }) {
                       <Action.CopyToClipboard
                         title="Copy Session ID"
                         content={session.id}
-                        shortcut={{ modifiers: ["cmd"], key: "c" }}
+                        shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                       />
                     </ActionPanel>
                   }

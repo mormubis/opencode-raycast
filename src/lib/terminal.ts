@@ -74,6 +74,10 @@ export async function openOpenCode(directory: string): Promise<void> {
   return openInITerm(directory, "opencode");
 }
 
+function shellQuote(str: string): string {
+  return `'${str.replace(/'/g, "'\\''")}'`;
+}
+
 export async function resumeSession(directory: string, sessionId: string, isOpen: boolean = false): Promise<void> {
   if (isOpen) {
     const tty = findTtyForSession(sessionId);
@@ -82,5 +86,5 @@ export async function resumeSession(directory: string, sessionId: string, isOpen
       if (focused) return;
     }
   }
-  return openInITerm(directory, `opencode -s ${sessionId}`);
+  return openInITerm(directory, `opencode -s ${shellQuote(sessionId)}`);
 }

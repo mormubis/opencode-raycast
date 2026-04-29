@@ -12,8 +12,10 @@ import {
 import { resumeSession } from "./lib/terminal";
 
 export function formatTime(timestamp: number): string {
+  // Guard: if timestamp is in seconds (< 1e12), convert to milliseconds
+  const ts = timestamp < 1e12 ? timestamp * 1000 : timestamp;
   const now = Date.now();
-  const diffMs = now - timestamp;
+  const diffMs = now - ts;
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
@@ -79,7 +81,7 @@ function SessionActivity({ session }: { session: DbSession }) {
           <Action.CopyToClipboard
             title="Copy Session ID"
             content={session.id}
-            shortcut={{ modifiers: ["cmd"], key: "c" }}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
           />
         </ActionPanel>
       }
@@ -117,7 +119,7 @@ export function SessionListItem({
           <Action.CopyToClipboard
             title="Copy Session ID"
             content={session.id}
-            shortcut={{ modifiers: ["cmd"], key: "c" }}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
           />
         </ActionPanel>
       }
@@ -125,7 +127,7 @@ export function SessionListItem({
   );
 }
 
-function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSession["liveness"] | undefined {
+export function getLiveness(openSessions: OpenSession[], sessionId: string): OpenSession["liveness"] | undefined {
   const found = openSessions.find((o) => o.id === sessionId);
   return found?.liveness;
 }

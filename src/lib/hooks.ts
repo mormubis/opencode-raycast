@@ -1,5 +1,5 @@
 import { useCachedPromise } from "@raycast/utils";
-import { Project, Session, SessionStatus, Todo } from "@opencode-ai/sdk/v2/client";
+import { Project, Todo } from "@opencode-ai/sdk/v2/client";
 import { getClient } from "./clients";
 import {
   getSessionCountsByProject,
@@ -11,7 +11,7 @@ import {
   OpenSession,
 } from "./db";
 
-export type { Project, Session, SessionStatus, Todo, DbSession, OpenSession };
+export type { Project, Todo, DbSession, OpenSession };
 
 export type MessageWithParts = {
   info: {
@@ -66,10 +66,6 @@ export function useProjectSessions(projectId: string) {
 }
 
 /**
- * Search sessions by message content. Slower but finds conversations
- * that title search misses.
- */
-/**
  * Search sessions by title + message content (merged, deduplicated).
  */
 export function useContentSearch(searchQuery: string) {
@@ -88,14 +84,6 @@ export function useContentSearch(searchQuery: string) {
 export function useOpenSessions() {
   return useCachedPromise(async () => {
     return getOpenSessions();
-  });
-}
-
-export function useSessionStatus() {
-  return useCachedPromise(async () => {
-    const client = await getClient();
-    const result = await client.session.status();
-    return (result.data ?? {}) as Record<string, SessionStatus>;
   });
 }
 

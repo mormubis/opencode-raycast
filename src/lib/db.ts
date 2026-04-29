@@ -21,7 +21,17 @@ export interface OpenSession {
  * - "open": open in terminal but idle
  * - Sessions not in the result are closed.
  */
+function escSql(str: string): string {
+  return str.replace(/'/g, "''");
+}
+
+let openSessionsCache: { data: OpenSession[]; timestamp: number } | null = null;
+const OPEN_SESSIONS_TTL = 5_000;
+
 export function getOpenSessions(): OpenSession[] {
+  if (openSessionsCache && Date.now() - openSessionsCache.timestamp < OPEN_SESSIONS_TTL) {
+    return openSessionsCache.data;
+  }
   // 1. Find session IDs from process list
   const processIds: string[] = [];
   try {
@@ -40,39 +50,24 @@ export function getOpenSessions(): OpenSession[] {
   if (processIds.length === 0) return [];
 
   // 2. Check which are recently active (updated in last 60s) or have in_progress todos
+  // Uses query() which passes SQL via stdin to avoid shell injection
   const cutoff = Date.now() - 60_000;
-  const quoted = processIds.map((id) => `'${id}'`).join(",");
+  const inClause = processIds.map((id) => `'${escSql(id)}'`).join(",");
 
-  const recentlyUpdated = new Set<string>();
-  try {
-    const output = execSync(
-      `sqlite3 "${DB_PATH}" "SELECT id FROM session WHERE id IN (${quoted}) AND time_updated > ${cutoff}"`,
-      { encoding: "utf-8" },
-    );
-    for (const line of output.trim().split("\n")) {
-      if (line) recentlyUpdated.add(line);
-    }
-  } catch {
-    // ignore
-  }
+  const recentOutput = query(`SELECT id FROM session WHERE id IN (${inClause}) AND time_updated > ${cutoff}`);
+  const recentlyUpdated = new Set<string>(recentOutput.trim().split("\n").filter(Boolean));
 
-  const hasTodos = new Set<string>();
-  try {
-    const output = execSync(
-      `sqlite3 "${DB_PATH}" "SELECT DISTINCT session_id FROM todo WHERE session_id IN (${quoted}) AND status = 'in_progress'"`,
-      { encoding: "utf-8" },
-    );
-    for (const line of output.trim().split("\n")) {
-      if (line) hasTodos.add(line);
-    }
-  } catch {
-    // ignore
-  }
+  const todoOutput = query(
+    `SELECT DISTINCT session_id FROM todo WHERE session_id IN (${inClause}) AND status = 'in_progress'`,
+  );
+  const hasTodos = new Set<string>(todoOutput.trim().split("\n").filter(Boolean));
 
-  return processIds.map((id) => ({
+  const result = processIds.map((id) => ({
     id,
-    liveness: recentlyUpdated.has(id) || hasTodos.has(id) ? "active" : "open",
+    liveness: (recentlyUpdated.has(id) || hasTodos.has(id) ? "active" : "open") as SessionLiveness,
   }));
+  openSessionsCache = { data: result, timestamp: Date.now() };
+  return result;
 }
 
 export interface DbProject {
@@ -133,7 +128,7 @@ export interface DbSession {
 /**
  * List recent sessions across ALL projects from the SQLite database.
  */
-export function getRecentSessions(limit = 50): DbSession[] {
+export function getRecentSessions(limit = 100): DbSession[] {
   const output = query(
     `SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL AND parent_id IS NULL ORDER BY time_updated DESC LIMIT ${limit}`,
   );
@@ -225,40 +220,35 @@ export function searchSessions(keyword: string, limit = 30): DbSession[] {
     }
   }
 
-  // 1. Exact phrase in title (score: 10)
-  addResults(
-    parseSessionRows(query(`${base} AND lower(title) LIKE '%${escaped}%' ORDER BY time_updated DESC LIMIT ${limit}`)),
-    10,
-  );
+  // 1. Exact phrase: title (score 10) + content (score 5) in one query
+  const exactSql = [
+    `${base} AND lower(title) LIKE '%${escaped}%' ORDER BY time_updated DESC LIMIT ${limit}`,
+    `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+  ].join(";\n");
+  const exactOutput = query(exactSql);
+  // First query results are title matches, second are content matches
+  // sqlite3 outputs them sequentially — split by parsing all rows and scoring by title match
+  const exactRows = parseSessionRows(exactOutput);
+  for (const s of exactRows) {
+    const inTitle = s.title.toLowerCase().includes(escaped);
+    addResults([s], inTitle ? 10 : 5);
+  }
 
-  // 2. Exact phrase in content (score: 5)
-  addResults(
-    parseSessionRows(
-      query(
-        `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
-      ),
-    ),
-    5,
-  );
-
-  // 3. Individual words — only if multi-word query
+  // 2. Individual words — only if multi-word query, single query with UNION
   if (words.length > 1) {
-    for (const word of words) {
-      // Word in title (score: 3)
-      addResults(
-        parseSessionRows(query(`${base} AND lower(title) LIKE '%${word}%' ORDER BY time_updated DESC LIMIT ${limit}`)),
-        3,
-      );
-
-      // Word in content (score: 1)
-      addResults(
-        parseSessionRows(
-          query(
-            `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${word}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${word}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
-          ),
-        ),
-        1,
-      );
+    const wordTitleQueries = words.map(
+      (w) => `${base} AND lower(title) LIKE '%${w}%' ORDER BY time_updated DESC LIMIT ${limit}`,
+    );
+    const wordContentQueries = words.map(
+      (w) =>
+        `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${w}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${w}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+    );
+    const wordRows = parseSessionRows(query([...wordTitleQueries, ...wordContentQueries].join(";\n")));
+    for (const s of wordRows) {
+      // Score by how many words match the title (3 each) vs content (1 each)
+      const titleLower = s.title.toLowerCase();
+      const titleHits = words.filter((w) => titleLower.includes(w)).length;
+      addResults([s], titleHits * 3 + 1);
     }
   }
 
