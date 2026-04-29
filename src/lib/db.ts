@@ -178,36 +178,75 @@ function parseSessionRows(output: string): DbSession[] {
 }
 
 /**
- * Search sessions using the same strategy as the recover-opencode-conversation skill:
- * 1. Title search (fast, matches session names)
- * 2. Content search (slower, scans message text and tool inputs)
- * Results are merged and deduplicated, title matches first.
+ * Search sessions using multi-word strategy inspired by recover-opencode-conversation skill:
+ * 1. Exact phrase in title (best match)
+ * 2. Exact phrase in content
+ * 3. Individual words in title
+ * 4. Individual words in content
+ * Results are scored by match count, deduplicated, and sorted by score then recency.
  */
 export function searchSessions(keyword: string, limit = 30): DbSession[] {
-  const escaped = keyword.replace(/'/g, "''").toLowerCase();
+  const escaped = keyword.replace(/'/g, "''").toLowerCase().trim();
+  if (!escaped) return [];
+
+  const words = escaped.split(/\s+/).filter((w) => w.length >= 2);
   const base =
     "SELECT id, project_id, title, directory, time_created, time_updated FROM session WHERE time_archived IS NULL AND parent_id IS NULL";
+  const contentBase =
+    "SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND s.parent_id IS NULL";
 
-  // 1. Title search (fast)
-  const titleResults = parseSessionRows(
-    query(`${base} AND lower(title) LIKE '%${escaped}%' ORDER BY time_updated DESC LIMIT ${limit}`),
-  );
+  const scores = new Map<string, { session: DbSession; score: number }>();
 
-  // 2. Content search — text and tool inputs (slower, deeper)
-  const contentResults = parseSessionRows(
-    query(
-      `SELECT DISTINCT s.id, s.project_id, s.title, s.directory, s.time_created, s.time_updated FROM part p JOIN message m ON p.message_id = m.id JOIN session s ON m.session_id = s.id WHERE s.time_archived IS NULL AND s.parent_id IS NULL AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
-    ),
-  );
-
-  // Merge: title matches first, then content matches (deduplicated)
-  const seen = new Set<string>();
-  const merged: DbSession[] = [];
-  for (const s of [...titleResults, ...contentResults]) {
-    if (!seen.has(s.id)) {
-      seen.add(s.id);
-      merged.push(s);
+  function addResults(sessions: DbSession[], score: number) {
+    for (const s of sessions) {
+      const existing = scores.get(s.id);
+      if (existing) {
+        existing.score += score;
+      } else {
+        scores.set(s.id, { session: s, score });
+      }
     }
   }
-  return merged.slice(0, limit);
+
+  // 1. Exact phrase in title (score: 10)
+  addResults(
+    parseSessionRows(query(`${base} AND lower(title) LIKE '%${escaped}%' ORDER BY time_updated DESC LIMIT ${limit}`)),
+    10,
+  );
+
+  // 2. Exact phrase in content (score: 5)
+  addResults(
+    parseSessionRows(
+      query(
+        `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${escaped}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${escaped}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+      ),
+    ),
+    5,
+  );
+
+  // 3. Individual words — only if multi-word query
+  if (words.length > 1) {
+    for (const word of words) {
+      // Word in title (score: 3)
+      addResults(
+        parseSessionRows(query(`${base} AND lower(title) LIKE '%${word}%' ORDER BY time_updated DESC LIMIT ${limit}`)),
+        3,
+      );
+
+      // Word in content (score: 1)
+      addResults(
+        parseSessionRows(
+          query(
+            `${contentBase} AND (lower(json_extract(p.data, '$.text')) LIKE '%${word}%' OR lower(json_extract(p.data, '$.input')) LIKE '%${word}%') ORDER BY s.time_updated DESC LIMIT ${limit}`,
+          ),
+        ),
+        1,
+      );
+    }
+  }
+
+  return Array.from(scores.values())
+    .sort((a, b) => b.score - a.score || b.session.timeUpdated - a.session.timeUpdated)
+    .slice(0, limit)
+    .map((e) => e.session);
 }
