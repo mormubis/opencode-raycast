@@ -10,9 +10,40 @@ function shellQuote(str: string): string {
   return `'${str.replace(/'/g, "'\\''")}'`;
 }
 
-function getTerminal(): string {
+type TerminalId = "iterm2" | "terminal" | "warp" | "ghostty" | "kitty";
+
+const terminalProcessNames: Record<TerminalId, string[]> = {
+  iterm2: ["iTerm2"],
+  kitty: ["kitty"],
+  warp: ["Warp"],
+  ghostty: ["Ghostty", "ghostty"],
+  terminal: ["Terminal"],
+};
+
+// Priority order for auto-detection
+const terminalPriority: TerminalId[] = ["iterm2", "kitty", "warp", "ghostty", "terminal"];
+
+function detectTerminal(): TerminalId {
+  try {
+    const output = execSync("ps -eo comm= | sort -u", { encoding: "utf-8" });
+    const running = new Set(output.split("\n").map((l) => l.trim().split("/").pop() ?? ""));
+
+    for (const id of terminalPriority) {
+      if (terminalProcessNames[id].some((name) => running.has(name))) {
+        return id;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return "terminal";
+}
+
+function getTerminal(): TerminalId {
   const prefs = getPreferenceValues<Preferences>();
-  return prefs.terminal ?? "iterm2";
+  const pref = prefs.terminal as string | undefined;
+  if (pref && pref !== "auto" && pref in terminalProcessNames) return pref as TerminalId;
+  return detectTerminal();
 }
 
 function findTtyForSession(sessionId: string): string | null {
@@ -183,8 +214,6 @@ async function openInKitty(directory: string, command: string): Promise<void> {
 }
 
 // --- Public API ---
-
-type TerminalId = "iterm2" | "terminal" | "warp" | "ghostty" | "kitty";
 
 const openers: Record<TerminalId, (dir: string, cmd: string) => Promise<void>> = {
   iterm2: openInITerm,
