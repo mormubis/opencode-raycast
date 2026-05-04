@@ -40,7 +40,10 @@
       "default": "iterm2",
       "data": [
         { "title": "iTerm2", "value": "iterm2" },
-        { "title": "Terminal.app", "value": "terminal" }
+        { "title": "Terminal.app", "value": "terminal" },
+        { "title": "Warp", "value": "warp" },
+        { "title": "Ghostty", "value": "ghostty" },
+        { "title": "Kitty", "value": "kitty" }
       ]
     }
   ],
