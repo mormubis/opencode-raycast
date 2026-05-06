@@ -166,8 +166,9 @@ export default function SearchProjects() {
                     target={<ProjectSessions project={project} />}
                   />
                   <Action
-                    title="Open in Terminal"
-                    icon={Icon.Terminal}
+                    title="New Session"
+                    icon={Icon.Plus}
+                    shortcut={{ modifiers: ["cmd"], key: "n" }}
                     onAction={() => openOpenCode(project.worktree)}
                   />
                   <Action.CopyToClipboard
